@@ -1,4 +1,4 @@
-name: Build SensexAlert V3
+name: Build SensexAlert V3.1
 
 on:
   workflow_dispatch:
@@ -11,8 +11,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -22,10 +24,8 @@ jobs:
 
       - name: Setup Android
         uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools'
 
-      - name: Install SDK
+      - name: Install Android SDK
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
@@ -43,14 +43,28 @@ jobs:
           mkdir -p app/src/main/res/values app/src/main/res/xml
 
           cat > settings.gradle <<'EOF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-          rootProject.name='SensexAlert'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = 'SensexAlert'
           include ':app'
           EOF
 
           cat > build.gradle <<'EOF'
-          plugins { id 'com.android.application' version '8.6.1' apply false }
+          plugins {
+              id 'com.android.application' version '8.6.1' apply false
+          }
           EOF
 
           cat > gradle.properties <<'EOF'
@@ -59,591 +73,1016 @@ jobs:
           EOF
 
           cat > app/build.gradle <<'EOF'
-          plugins { id 'com.android.application' }
+          plugins {
+              id 'com.android.application'
+          }
+
           android {
-            namespace 'com.praveen.sensexalert'
-            compileSdk 35
-            defaultConfig {
-              applicationId 'com.praveen.sensexalert'
-              minSdk 26
-              targetSdk 35
-              versionCode 3
-              versionName '3.0'
-            }
+              namespace 'com.praveen.sensexalert'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.praveen.sensexalert'
+                  minSdk 26
+                  targetSdk 35
+                  versionCode 4
+                  versionName '3.1'
+              }
           }
           EOF
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
-            <string name="app_name">SensexAlert</string>
-            <string name="wallpaper_description">SENSEX Live Market Dashboard</string>
+              <string name="app_name">SensexAlert</string>
+              <string name="wallpaper_description">SENSEX Live Market Dashboard</string>
           </resources>
           EOF
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-            <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar"> <item name="android:fontFamily">sans</item> <item name="android:statusBarColor">#000000</item> <item name="android:navigationBarColor">#000000</item> </style>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar"> <item name="android:fontFamily">sans</item> <item name="android:statusBarColor">#000000</item> <item name="android:navigationBarColor">#000000</item> <item name="android:windowLightStatusBar">false</item> </style>
           </resources>
           EOF
 
           cat > app/src/main/res/xml/wallpaper.xml <<'EOF'
           <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
-              android:description="@string/wallpaper_description"/>
+              android:description="@string/wallpaper_description" />
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-            <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
-            <application android:allowBackup="true" android:label="@string/app_name" android:theme="@style/AppTheme"> <activity android:name=".MainActivity" android:exported="true"> <intent-filter> <action android:name="android.intent.action.MAIN"/> <category android:name="android.intent.category.LAUNCHER"/> </intent-filter> </activity> <receiver android:name=".AlertReceiver" android:exported="false"/> <service android:name=".SensexWallpaperService" android:exported="true" android:permission="android.permission.BIND_WALLPAPER"> <intent-filter> <action android:name="android.service.wallpaper.WallpaperService"/> </intent-filter> <meta-data android:name="android.service.wallpaper" android:resource="@xml/wallpaper"/> </service> </application>
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+              <application android:allowBackup="true" android:label="@string/app_name" android:theme="@style/AppTheme"> <activity android:name=".MainActivity" android:exported="true"> <intent-filter> <action android:name="android.intent.action.MAIN" /> <category android:name="android.intent.category.LAUNCHER" /> </intent-filter> </activity> <receiver android:name=".AlertReceiver" android:exported="false" /> <service android:name=".SensexWallpaperService" android:exported="true" android:permission="android.permission.BIND_WALLPAPER"> <intent-filter> <action android:name="android.service.wallpaper.WallpaperService" /> </intent-filter> <meta-data android:name="android.service.wallpaper" android:resource="@xml/wallpaper" /> </service> </application>
           </manifest>
           EOF
 
           cat > app/src/main/java/com/praveen/sensexalert/AlertReceiver.java <<'EOF'
           package com.praveen.sensexalert;
 
-          import android.app.*;
-          import android.content.*;
-          import android.os.*;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.Notification;
+          import android.content.BroadcastReceiver;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.os.Build;
 
           public class AlertReceiver extends BroadcastReceiver {
-            static final String CH="sensex_alert";
+              static final String CHANNEL = "sensex_alert";
 
-            @Override public void onReceive(Context c, Intent i) {
-              String title=i.getStringExtra("title");
-              String body=i.getStringExtra("body");
+              @Override
+              public void onReceive(Context context, Intent intent) {
+                  NotificationManager nm =
+                          (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
-              NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+                  if (Build.VERSION.SDK_INT >= 26) {
+                      nm.createNotificationChannel(
+                              new NotificationChannel(
+                                      CHANNEL,
+                                      "Sensex Alerts",
+                                      NotificationManager.IMPORTANCE_HIGH));
+                  }
 
-              if(Build.VERSION.SDK_INT>=26) {
-                nm.createNotificationChannel(
-                  new NotificationChannel(CH,"Sensex Alerts",
-                    NotificationManager.IMPORTANCE_HIGH));
+                  String title = intent.getStringExtra("title");
+                  String body = intent.getStringExtra("body");
+
+                  Notification.Builder builder =
+                          Build.VERSION.SDK_INT >= 26
+                                  ? new Notification.Builder(context, CHANNEL)
+                                  : new Notification.Builder(context);
+
+                  builder.setSmallIcon(android.R.drawable.ic_dialog_alert)
+                          .setContentTitle(title == null ? "SensexAlert" : title)
+                          .setContentText(body == null ? "Alert" : body)
+                          .setAutoCancel(true)
+                          .setPriority(Notification.PRIORITY_HIGH);
+
+                  nm.notify((int) (System.currentTimeMillis() % 100000), builder.build());
               }
-
-              Notification.Builder b;
-              if(Build.VERSION.SDK_INT>=26)
-                b=new Notification.Builder(c,CH);
-              else
-                b=new Notification.Builder(c);
-
-              b.setSmallIcon(android.R.drawable.ic_dialog_alert)
-               .setContentTitle(title==null?"SensexAlert":title)
-               .setContentText(body==null?"Alert":body)
-               .setAutoCancel(true);
-
-              nm.notify((int)(System.currentTimeMillis()%100000),b.build());
-            }
           }
           EOF
 
           cat > app/src/main/java/com/praveen/sensexalert/SensexWallpaperService.java <<'EOF'
           package com.praveen.sensexalert;
 
-          import android.graphics.*;
-          import android.os.*;
+          import android.graphics.Canvas;
+          import android.graphics.Color;
+          import android.graphics.Paint;
+          import android.os.Handler;
+          import android.os.Looper;
           import android.service.wallpaper.WallpaperService;
-          import android.view.*;
+          import android.view.SurfaceHolder;
 
           public class SensexWallpaperService extends WallpaperService {
-            public Engine onCreateEngine(){return new E();}
-
-            class E extends Engine {
-              Handler h=new Handler(Looper.getMainLooper());
-              boolean visible;
-
-              Runnable r=new Runnable(){
-                public void run(){
-                  draw();
-                  if(visible) h.postDelayed(this,10000);
-                }
-              };
-
-              public void onVisibilityChanged(boolean v){
-                visible=v;
-                if(v) r.run(); else h.removeCallbacks(r);
+              @Override
+              public Engine onCreateEngine() {
+                  return new MarketEngine();
               }
 
-              public void onSurfaceChanged(SurfaceHolder x,int f,int w,int hh){draw();}
-              public void onSurfaceDestroyed(SurfaceHolder x){h.removeCallbacks(r);super.onSurfaceDestroyed(x);}
-              public void onDestroy(){h.removeCallbacks(r);super.onDestroy();}
+              class MarketEngine extends Engine {
+                  final Handler handler = new Handler(Looper.getMainLooper());
+                  boolean visible;
 
-              void draw(){
-                SurfaceHolder sh=getSurfaceHolder();
-                Canvas c=null;
+                  final Runnable drawRunnable = new Runnable() {
+                      @Override
+                      public void run() {
+                          draw();
+                          if (visible) {
+                              handler.postDelayed(this, 10000);
+                          }
+                      }
+                  };
 
-                try{
-                  c=sh.lockCanvas();
-                  if(c==null)return;
+                  @Override
+                  public void onVisibilityChanged(boolean v) {
+                      visible = v;
+                      if (v) {
+                          drawRunnable.run();
+                      } else {
+                          handler.removeCallbacks(drawRunnable);
+                      }
+                  }
 
-                  c.drawColor(Color.BLACK);
+                  @Override
+                  public void onSurfaceChanged( SurfaceHolder holder, int format, int width, int height) {
+                      draw();
+                  }
 
-                  Paint p=new Paint(1);
-                  p.setTextAlign(Paint.Align.CENTER);
-                  p.setColor(Color.WHITE);
+                  @Override
+                  public void onSurfaceDestroyed(SurfaceHolder holder) {
+                      handler.removeCallbacks(drawRunnable);
+                      super.onSurfaceDestroyed(holder);
+                  }
 
-                  android.content.SharedPreferences s=
-                    getSharedPreferences("sensex_alert",0);
+                  @Override
+                  public void onDestroy() {
+                      handler.removeCallbacks(drawRunnable);
+                      super.onDestroy();
+                  }
 
-                  p.setTextSize(38);
-                  c.drawText("SENSEX",c.getWidth()/2f,100,p);
+                  private void draw() {
+                      Canvas canvas = null;
+                      try {
+                          canvas = getSurfaceHolder().lockCanvas();
+                          if (canvas == null) return;
 
-                  p.setTextSize(25);
-                  c.drawText(s.getString("sensex","--"),
-                    c.getWidth()/2f,155,p);
+                          canvas.drawColor(Color.BLACK);
 
-                  p.setTextSize(18);
-                  p.setColor(Color.LTGRAY);
+                          android.content.SharedPreferences sp =
+                                  getSharedPreferences("sensex_alert", 0);
 
-                  c.drawText("Teal position: "+
-                    s.getString("position","--"),
-                    c.getWidth()/2f,195,p);
+                          Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+                          p.setTextAlign(Paint.Align.CENTER);
+                          p.setColor(Color.WHITE);
 
-                  c.drawText(s.getString("status","Polling OFF"),
-                    c.getWidth()/2f,230,p);
+                          p.setTextSize(38);
+                          canvas.drawText("SENSEX",
+                                  canvas.getWidth() / 2f, 90, p);
 
-                } finally {
-                  if(c!=null) sh.unlockCanvasAndPost(c);
-                }
+                          p.setTextSize(26);
+                          canvas.drawText(
+                                  sp.getString("sensex", "--"),
+                                  canvas.getWidth() / 2f, 140, p);
+
+                          p.setTextSize(18);
+                          p.setColor(Color.LTGRAY);
+                          canvas.drawText(
+                                  "PCR " + sp.getString("pcr", "--"),
+                                  canvas.getWidth() / 2f, 180, p);
+
+                          canvas.drawText(
+                                  "Teal " + sp.getString("position", "--"),
+                                  canvas.getWidth() / 2f, 215, p);
+
+                          canvas.drawText(
+                                  sp.getString("status", "Polling OFF"),
+                                  canvas.getWidth() / 2f, 250, p);
+
+                      } finally {
+                          if (canvas != null) {
+                              getSurfaceHolder().unlockCanvasAndPost(canvas);
+                          }
+                      }
+                  }
               }
-            }
           }
           EOF
 
           cat > app/src/main/java/com/praveen/sensexalert/MainActivity.java <<'EOF'
           package com.praveen.sensexalert;
 
-          import android.app.*;
-          import android.content.*;
+          import android.Manifest;
+          import android.app.AlarmManager;
+          import android.app.AlertDialog;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.app.WallpaperManager;
+          import android.content.ComponentName;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.SharedPreferences;
+          import android.content.pm.PackageManager;
           import android.graphics.Color;
-          import android.os.*;
-          import android.view.*;
-          import android.widget.*;
-          import org.json.*;
-          import java.io.*;
-          import java.net.*;
-          import java.time.*;
-          import java.util.*;
-          import java.util.concurrent.*;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.text.InputType;
+          import android.view.ViewGroup;
+          import android.widget.Button;
+          import android.widget.EditText;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.Switch;
+          import android.widget.TextView;
+          import android.widget.TimePicker;
 
-          public class MainActivity extends Activity {
+          import androidx.core.app.ActivityCompat;
 
-            static final String P="sensex_alert";
-            static final String TOKEN="token";
-            static final String SENSEX="BSE_INDEX|SENSEX";
+          import org.json.JSONArray;
+          import org.json.JSONObject;
 
-            SharedPreferences sp;
-            Handler h=new Handler(Looper.getMainLooper());
-            ExecutorService ex=Executors.newSingleThreadExecutor();
+          import java.io.BufferedReader;
+          import java.io.InputStream;
+          import java.io.InputStreamReader;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.net.URLEncoder;
+          import java.time.LocalDate;
+          import java.time.LocalTime;
+          import java.util.ArrayList;
+          import java.util.Calendar;
+          import java.util.Collections;
+          import java.util.Iterator;
+          import java.util.Locale;
+          import java.util.concurrent.ExecutorService;
+          import java.util.concurrent.Executors;
 
-            TextView sx,pcr,mp,oi,status,axis;
-            EditText token;
-            Switch poll;
+          public class MainActivity extends android.app.Activity {
 
-            @Override
-            public void onCreate(Bundle b){
-              super.onCreate(b);
-              sp=getSharedPreferences(P,0);
-              channel();
-              ui();
-            }
+              static final String PREF = "sensex_alert";
+              static final String TOKEN = "token";
+              static final String SENSEX = "BSE_INDEX|SENSEX";
 
-            TextView t(String s,int z){
-              TextView x=new TextView(this);
-              x.setText(s);
-              x.setTextSize(z);
-              x.setTextColor(Color.WHITE);
-              x.setPadding(0,10,0,10);
-              return x;
-            }
+              SharedPreferences sp;
+              Handler handler = new Handler(Looper.getMainLooper());
+              ExecutorService executor = Executors.newSingleThreadExecutor();
 
-            Button btn(String s){
-              Button b=new Button(this);
-              b.setText(s);
-              return b;
-            }
+              TextView sensexView;
+              TextView pcrView;
+              TextView maxPainView;
+              TextView oiView;
+              TextView tealView;
+              TextView statusView;
+              EditText tokenEdit;
+              Switch pollingSwitch;
 
-            void ui(){
-              ScrollView sv=new ScrollView(this);
-              LinearLayout r=new LinearLayout(this);
-              r.setOrientation(LinearLayout.VERTICAL);
-              r.setPadding(28,25,28,25);
-              r.setBackgroundColor(Color.BLACK);
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
 
-              r.addView(t("SENSEX ALERT V3",28));
+                  sp = getSharedPreferences(PREF, MODE_PRIVATE);
+                  createNotificationChannel();
 
-              token=new EditText(this);
-              token.setHint("Upstox Analytics Token");
-              token.setSingleLine();
-              token.setTextColor(Color.WHITE);
-              token.setHintTextColor(Color.GRAY);
-              token.setText(sp.getString(TOKEN,""));
-              r.addView(token);
-
-              Button save=btn("SAVE TOKEN");
-              r.addView(save);
-              save.setOnClickListener(v->{
-                sp.edit().putString(TOKEN,token.getText().toString().trim()).apply();
-                refresh();
-              });
-
-              poll=new Switch(this);
-              poll.setText("LIVE POLLING • 10 SEC");
-              poll.setTextColor(Color.WHITE);
-              poll.setChecked(sp.getBoolean("poll",false));
-              r.addView(poll);
-
-              poll.setOnCheckedChangeListener((b,on)->{
-                sp.edit().putBoolean("poll",on).apply();
-
-                h.removeCallbacksAndMessages(null);
-
-                if(on){
-                  refresh();
-                  h.postDelayed(new Runnable(){
-                    public void run(){
-                      if(poll.isChecked()){
-                        refresh();
-                        h.postDelayed(this,10000);
-                      }
-                    }
-                  },10000);
-                }else{
-                  status.setText("Polling OFF • last values kept");
-                }
-              });
-
-              sx=t("SENSEX --",27);
-              pcr=t("PCR --",21);
-              mp=t("MAX PAIN --",21);
-              oi=t("OI --",19);
-              axis=t("Teal position --",18);
-              status=t("Polling OFF",16);
-
-              r.addView(sx);
-              r.addView(pcr);
-              r.addView(mp);
-              r.addView(oi);
-              r.addView(axis);
-              r.addView(status);
-
-              Button alerts=btn("ALERT SETTINGS");
-              r.addView(alerts);
-              alerts.setOnClickListener(v->alerts());
-
-              Button times=btn("TIME ALARMS");
-              r.addView(times);
-              times.setOnClickListener(v->timeList());
-
-              Button wp=btn("SET LIVE WALLPAPER");
-              r.addView(wp);
-              wp.setOnClickListener(v->wallpaper());
-
-              sv.addView(r);
-              setContentView(sv);
-
-              if(poll.isChecked())refresh();
-            }
-
-            void alerts(){
-              LinearLayout r=new LinearLayout(this);
-              r.setOrientation(LinearLayout.VERTICAL);
-              r.setPadding(30,10,30,10);
-
-              String[] types={
-                "PCR ABOVE","PCR BELOW",
-                "SENSEX ABOVE","SENSEX BELOW",
-                "TEAL BELOW","TEAL ABOVE"
-              };
-
-              for(String type:types){
-                EditText e=new EditText(this);
-                e.setHint(type+" threshold");
-                e.setText(sp.getString("rule_"+type,""));
-                e.setInputType(2|8192);
-
-                Switch s=new Switch(this);
-                s.setText(type+" enabled");
-                s.setChecked(sp.getBoolean("en_"+type,false));
-
-                LinearLayout row=new LinearLayout(this);
-                row.setOrientation(LinearLayout.VERTICAL);
-                row.addView(e);
-                row.addView(s);
-                r.addView(row);
-
-                s.setOnCheckedChangeListener((x,on)->
-                  sp.edit()
-                    .putBoolean("en_"+type,on)
-                    .putString("rule_"+type,e.getText().toString())
-                    .apply());
-
-                e.setOnFocusChangeListener((v,f)->{
-                  if(!f)
-                    sp.edit().putString("rule_"+type,
-                      e.getText().toString()).apply();
-                });
-              }
-
-              new AlertDialog.Builder(this)
-                .setTitle("Market Alerts")
-                .setView(r)
-                .setPositiveButton("SAVE",null)
-                .setNegativeButton("CLOSE",null)
-                .show();
-            }
-
-            void timeList(){
-              LinearLayout r=new LinearLayout(this);
-              r.setOrientation(LinearLayout.VERTICAL);
-              r.setPadding(30,10,30,10);
-
-              String list=sp.getString("times","");
-              TextView current=t(
-                list.isEmpty()?"No time alarms":list,17);
-              r.addView(current);
-
-              Button add=btn("+ ADD / MODIFY TIME");
-              r.addView(add);
-
-              add.setOnClickListener(v->{
-                TimePicker tp=new TimePicker(this);
-                tp.setIs24HourView(false);
-
-                new AlertDialog.Builder(this)
-                  .setTitle("Set alarm time")
-                  .setView(tp)
-                  .setPositiveButton("SAVE",(d,w)->{
-                    String key=String.format(Locale.US,
-                      "%02d:%02d",tp.getHour(),tp.getMinute());
-
-                    sp.edit().putString("times",key).apply();
-                    schedule(key);
-                    current.setText(key);
-                  })
-                  .setNegativeButton("CANCEL",null)
-                  .show();
-              });
-
-              new AlertDialog.Builder(this)
-                .setTitle("Time Alarms")
-                .setView(r)
-                .setNegativeButton("CLOSE",null)
-                .show();
-            }
-
-            void schedule(String hm){
-              try{
-                String[] a=hm.split(":");
-                Calendar c=Calendar.getInstance();
-                c.set(Calendar.HOUR_OF_DAY,Integer.parseInt(a[0]));
-                c.set(Calendar.MINUTE,Integer.parseInt(a[1]));
-                c.set(Calendar.SECOND,0);
-
-                if(c.getTimeInMillis()<=System.currentTimeMillis())
-                  c.add(Calendar.DAY_OF_YEAR,1);
-
-                PendingIntent pi=PendingIntent.getBroadcast(
-                  this,hm.hashCode(),
-                  new Intent(this,AlertReceiver.class)
-                    .putExtra("title","⏰ SENSEX ALERT")
-                    .putExtra("body","Scheduled alarm: "+hm),
-                  PendingIntent.FLAG_UPDATE_CURRENT|
-                  PendingIntent.FLAG_IMMUTABLE);
-
-                ((AlarmManager)getSystemService(ALARM_SERVICE))
-                  .setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    c.getTimeInMillis(),pi);
-
-              }catch(Exception ignored){}
-            }
-
-            void refresh(){
-              String tk=token.getText().toString().trim();
-              if(tk.isEmpty())return;
-
-              ex.execute(()->{
-                try{
-                  String date=LocalDate.now().toString();
-
-                  JSONObject l=new JSONObject(get(
-                    "https://api.upstox.com/v3/market-quote/ltp?instrument_key="+
-                    URLEncoder.encode(SENSEX,"UTF-8"),tk));
-
-                  double price=l.getJSONObject("data")
-                    .getJSONObject(SENSEX).getDouble("last_price");
-
-                  JSONObject pj=new JSONObject(get(
-                    "https://api.upstox.com/v2/market/pcr?instrument_key="+
-                    URLEncoder.encode(SENSEX,"UTF-8")+
-                    "&expiry=current_week&date="+date+
-                    "&bucket_interval=60",tk));
-
-                  double pv=pj.getJSONObject("data")
-                    .optDouble("pcr",Double.NaN);
-
-                  JSONObject mj=new JSONObject(get(
-                    "https://api.upstox.com/v2/market/max-pain?instrument_key="+
-                    URLEncoder.encode(SENSEX,"UTF-8")+
-                    "&expiry=current_week&date="+date,tk));
-
-                  double pain=mj.getJSONObject("data")
-                    .optDouble("max_pain",Double.NaN);
-
-                  double lo=sp.getFloat("lo",Float.NaN);
-                  double hi=sp.getFloat("hi",Float.NaN);
-
-                  if(Double.isNaN(lo)||price<lo)lo=price;
-                  if(Double.isNaN(hi)||price>hi)hi=price;
-
-                  if(hi-lo<100){
-                    lo=price-50;
-                    hi=price+50;
+                  if (Build.VERSION.SDK_INT >= 33 &&
+                          checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                                  != PackageManager.PERMISSION_GRANTED) {
+                      ActivityCompat.requestPermissions(
+                              this,
+                              new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                              100);
                   }
 
-                  double leftMax=pv>1.0?1.4:1.2;
-                  double pos=(price-lo)/(hi-lo)*leftMax;
+                  buildUi();
+              }
 
-                  sp.edit()
-                    .putFloat("lo",(float)lo)
-                    .putFloat("hi",(float)hi)
-                    .putString("sensex",
-                      String.format(Locale.US,"%,.2f",price))
-                    .putString("position",
-                      String.format(Locale.US,"%.2f",pos))
-                    .putString("status","LIVE • 10 sec")
-                    .apply();
+              TextView text(String value, int size) {
+                  TextView v = new TextView(this);
+                  v.setText(value);
+                  v.setTextSize(size);
+                  v.setTextColor(Color.WHITE);
+                  v.setPadding(0, 10, 0, 10);
+                  return v;
+              }
 
-                  check("PCR ABOVE",pv);
-                  check("PCR BELOW",pv);
-                  check("SENSEX ABOVE",price);
-                  check("SENSEX BELOW",price);
-                  check("TEAL ABOVE",pos);
-                  check("TEAL BELOW",pos);
+              Button button(String value) {
+                  Button b = new Button(this);
+                  b.setText(value);
+                  return b;
+              }
 
-                  final double fPos=pos;
-                  final double fLo=lo;
-                  final double fHi=hi;
-                  final double fLeft=leftMax;
+              void buildUi() {
+                  ScrollView scroll = new ScrollView(this);
 
-                  runOnUiThread(()->{
-                    sx.setText(String.format(Locale.US,
-                      "SENSEX %,.2f",price));
-                    pcr.setText(String.format(Locale.US,
-                      "PCR %.4f",pv));
-                    mp.setText(String.format(Locale.US,
-                      "MAX PAIN %,.0f",pain));
-                    oi.setText("OI • use Upstox analytics");
-                    axis.setText(String.format(Locale.US,
-                      "Teal position %.2f • axis %.1f • range %,.0f–%,.0f",
-                      fPos,fLeft,fLo,fHi));
-                    status.setText("LIVE • updated "+
-                      LocalTime.now().withNano(0));
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(28, 25, 28, 25);
+                  root.setBackgroundColor(Color.BLACK);
+
+                  root.addView(text("SENSEX ALERT V3.1", 28));
+
+                  tokenEdit = new EditText(this);
+                  tokenEdit.setHint("Upstox Analytics Token");
+                  tokenEdit.setSingleLine(true);
+                  tokenEdit.setTextColor(Color.WHITE);
+                  tokenEdit.setHintTextColor(Color.GRAY);
+                  tokenEdit.setInputType(
+                          InputType.TYPE_CLASS_TEXT |
+                          InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                  tokenEdit.setText(sp.getString(TOKEN, ""));
+                  root.addView(tokenEdit);
+
+                  Button saveToken = button("SAVE TOKEN");
+                  root.addView(saveToken);
+
+                  saveToken.setOnClickListener(v -> {
+                      sp.edit()
+                              .putString(TOKEN, tokenEdit.getText().toString().trim())
+                              .apply();
+
+                      if (pollingSwitch.isChecked()) {
+                          refresh();
+                      }
                   });
 
-                }catch(Exception e){
-                  runOnUiThread(()->
-                    status.setText("API error: "+e.getMessage()));
-                }
-              });
-            }
+                  pollingSwitch = new Switch(this);
+                  pollingSwitch.setText("LIVE POLLING • 10 SEC");
+                  pollingSwitch.setTextColor(Color.WHITE);
+                  pollingSwitch.setChecked(sp.getBoolean("poll", false));
+                  root.addView(pollingSwitch);
 
-            void check(String type,double value){
-              if(Double.isNaN(value)||
-                 !sp.getBoolean("en_"+type,false))return;
+                  pollingSwitch.setOnCheckedChangeListener((buttonView, enabled) -> {
+                      sp.edit().putBoolean("poll", enabled).apply();
+                      handler.removeCallbacksAndMessages(null);
 
-              try{
-                double th=Double.parseDouble(
-                  sp.getString("rule_"+type,""));
+                      if (enabled) {
+                          refresh();
 
-                boolean above=type.contains("ABOVE");
-                boolean crossed=above?value>=th:value<=th;
-                String key="last_"+type;
-                boolean was=sp.getBoolean(key,false);
+                          handler.postDelayed(new Runnable() {
+                              @Override
+                              public void run() {
+                                  if (pollingSwitch.isChecked()) {
+                                      refresh();
+                                      handler.postDelayed(this, 10000);
+                                  }
+                              }
+                          }, 10000);
+                      } else {
+                          statusView.setText("Polling OFF • last values kept");
+                      }
+                  });
 
-                if(crossed&&!was){
-                  notifyNow(type,String.format(Locale.US,
-                    "%s %.2f crossed %.2f",type,value,th));
-                }
+                  sensexView = text("SENSEX --", 27);
+                  pcrView = text("PCR --", 21);
+                  maxPainView = text("MAX PAIN --", 21);
+                  oiView = text("OI --", 19);
+                  tealView = text("Teal position --", 18);
+                  statusView = text("Polling OFF", 16);
 
-                sp.edit().putBoolean(key,crossed).apply();
+                  root.addView(sensexView);
+                  root.addView(pcrView);
+                  root.addView(maxPainView);
+                  root.addView(oiView);
+                  root.addView(tealView);
+                  root.addView(statusView);
 
-              }catch(Exception ignored){}
-            }
+                  Button alertButton = button("ALERT SETTINGS");
+                  root.addView(alertButton);
+                  alertButton.setOnClickListener(v -> showAlertSettings());
 
-            void notifyNow(String type,String body){
-              sendBroadcast(new Intent(this,AlertReceiver.class)
-                .putExtra("title","🚨 "+type)
-                .putExtra("body",body));
-            }
+                  Button timeButton = button("TIME ALARMS");
+                  root.addView(timeButton);
+                  timeButton.setOnClickListener(v -> showTimeAlarms());
 
-            String get(String u,String tk)throws Exception{
-              HttpURLConnection c=(HttpURLConnection)
-                new URL(u).openConnection();
+                  Button wallpaperButton = button("SET LIVE WALLPAPER");
+                  root.addView(wallpaperButton);
+                  wallpaperButton.setOnClickListener(v -> openWallpaper());
 
-              c.setRequestProperty("Authorization","Bearer "+tk);
-              c.setRequestProperty("Accept","application/json");
-              c.setConnectTimeout(12000);
-              c.setReadTimeout(12000);
+                  scroll.addView(root);
+                  setContentView(scroll);
 
-              int n=c.getResponseCode();
-
-              InputStream in=n>=200&&n<300?
-                c.getInputStream():c.getErrorStream();
-
-              BufferedReader br=new BufferedReader(
-                new InputStreamReader(in));
-
-              StringBuilder b=new StringBuilder();
-              String q;
-
-              while((q=br.readLine())!=null)b.append(q);
-
-              if(n<200||n>=300)
-                throw new Exception("HTTP "+n+" "+b);
-
-              return b.toString();
-            }
-
-            void channel(){
-              NotificationManager n=
-                (NotificationManager)getSystemService(
-                  NOTIFICATION_SERVICE);
-
-              if(Build.VERSION.SDK_INT>=26)
-                n.createNotificationChannel(
-                  new NotificationChannel(
-                    "sensex_alert","Sensex Alerts",
-                    NotificationManager.IMPORTANCE_HIGH));
-            }
-
-            void wallpaper(){
-              try{
-                Intent i=new Intent(
-                  WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
-
-                i.putExtra(
-                  WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                  new ComponentName(
-                    this,SensexWallpaperService.class));
-
-                startActivity(i);
-
-              }catch(Exception e){
-                startActivity(new Intent(
-                  WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER));
+                  if (pollingSwitch.isChecked()) {
+                      refresh();
+                  }
               }
-            }
 
-            @Override
-            protected void onDestroy(){
-              h.removeCallbacksAndMessages(null);
-              ex.shutdownNow();
-              super.onDestroy();
-            }
+              void showAlertSettings() {
+                  LinearLayout box = new LinearLayout(this);
+                  box.setOrientation(LinearLayout.VERTICAL);
+                  box.setPadding(25, 5, 25, 5);
+
+                  String[] rules = {
+                          "PCR ABOVE",
+                          "PCR BELOW",
+                          "SENSEX ABOVE",
+                          "SENSEX BELOW",
+                          "TEAL BELOW",
+                          "TEAL ABOVE"
+                  };
+
+                  for (String rule : rules) {
+                      EditText threshold = new EditText(this);
+                      threshold.setHint(rule + " threshold");
+                      threshold.setText(sp.getString("rule_" + rule, ""));
+                      threshold.setTextColor(Color.WHITE);
+                      threshold.setInputType(
+                              InputType.TYPE_CLASS_NUMBER |
+                              InputType.TYPE_NUMBER_FLAG_DECIMAL |
+                              InputType.TYPE_NUMBER_FLAG_SIGNED);
+
+                      Switch enabled = new Switch(this);
+                      enabled.setText(rule + " enabled");
+                      enabled.setTextColor(Color.WHITE);
+                      enabled.setChecked(sp.getBoolean("enabled_" + rule, false));
+
+                      LinearLayout row = new LinearLayout(this);
+                      row.setOrientation(LinearLayout.VERTICAL);
+                      row.addView(threshold);
+                      row.addView(enabled);
+                      box.addView(row);
+
+                      enabled.setOnCheckedChangeListener((v, checked) ->
+                              sp.edit()
+                                      .putBoolean("enabled_" + rule, checked)
+                                      .putString("rule_" + rule,
+                                              threshold.getText().toString())
+                                      .apply());
+
+                      threshold.setOnFocusChangeListener((v, focused) -> {
+                          if (!focused) {
+                              sp.edit()
+                                      .putString("rule_" + rule,
+                                              threshold.getText().toString())
+                                      .apply();
+                          }
+                      });
+                  }
+
+                  new AlertDialog.Builder(this)
+                          .setTitle("Market Alerts")
+                          .setView(box)
+                          .setPositiveButton("SAVE", null)
+                          .setNegativeButton("CLOSE", null)
+                          .show();
+              }
+
+              ArrayList<String> getTimes() {
+                  String raw = sp.getString("times", "");
+                  ArrayList<String> result = new ArrayList<>();
+
+                  if (!raw.isEmpty()) {
+                      for (String time : raw.split(",")) {
+                          if (time.matches("\\d{2}:\\d{2}")) {
+                              result.add(time);
+                          }
+                      }
+                  }
+
+                  Collections.sort(result);
+                  return result;
+              }
+
+              void saveTimes(ArrayList<String> times) {
+                  Collections.sort(times);
+                  sp.edit().putString("times", String.join(",", times)).apply();
+              }
+
+              void showTimeAlarms() {
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setPadding(20, 10, 20, 10);
+
+                  LinearLayout rows = new LinearLayout(this);
+                  rows.setOrientation(LinearLayout.VERTICAL);
+
+                  Button add = button("+ ADD TIME");
+                  root.addView(add);
+                  root.addView(rows);
+
+                  add.setOnClickListener(v -> pickTime(null, rows));
+
+                  rebuildTimeRows(rows);
+
+                  new AlertDialog.Builder(this)
+                          .setTitle("Time Alarms • Add / Edit / Delete")
+                          .setView(root)
+                          .setNegativeButton("CLOSE", null)
+                          .show();
+              }
+
+              void rebuildTimeRows(LinearLayout rows) {
+                  rows.removeAllViews();
+
+                  ArrayList<String> times = getTimes();
+
+                  if (times.isEmpty()) {
+                      rows.addView(text("No time alarms configured.", 16));
+                      return;
+                  }
+
+                  for (String time : new ArrayList<>(times)) {
+                      LinearLayout row = new LinearLayout(this);
+
+                      Button edit = button("⏰ " + time);
+                      Button delete = button("DELETE");
+
+                      row.addView(edit,
+                              new LinearLayout.LayoutParams(0,
+                                      ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+                      row.addView(delete);
+
+                      rows.addView(row);
+
+                      edit.setOnClickListener(v -> pickTime(time, rows));
+
+                      delete.setOnClickListener(v -> {
+                          ArrayList<String> updated = getTimes();
+                          updated.remove(time);
+                          saveTimes(updated);
+                          cancelAlarm(time);
+                          rebuildTimeRows(rows);
+                      });
+                  }
+              }
+
+              void pickTime(String oldTime, LinearLayout rows) {
+                  TimePicker picker = new TimePicker(this);
+                  picker.setIs24HourView(false);
+
+                  if (oldTime != null) {
+                      try {
+                          String[] parts = oldTime.split(":");
+                          picker.setHour(Integer.parseInt(parts[0]));
+                          picker.setMinute(Integer.parseInt(parts[1]));
+                      } catch (Exception ignored) {
+                      }
+                  }
+
+                  new AlertDialog.Builder(this)
+                          .setTitle(oldTime == null ? "Add alarm" : "Edit " + oldTime)
+                          .setView(picker)
+                          .setPositiveButton("SAVE", (dialog, which) -> {
+                              String newTime = String.format(
+                                      Locale.US,
+                                      "%02d:%02d",
+                                      picker.getHour(),
+                                      picker.getMinute());
+
+                              ArrayList<String> times = getTimes();
+
+                              if (oldTime != null) {
+                                  times.remove(oldTime);
+                                  cancelAlarm(oldTime);
+                              }
+
+                              if (!times.contains(newTime)) {
+                                  times.add(newTime);
+                              }
+
+                              saveTimes(times);
+                              scheduleAlarm(newTime);
+                              rebuildTimeRows(rows);
+                          })
+                          .setNegativeButton("CANCEL", null)
+                          .show();
+              }
+
+              int alarmId(String time) {
+                  return 5000 + Math.abs(time.hashCode() % 100000);
+              }
+
+              void scheduleAlarm(String time) {
+                  try {
+                      String[] parts = time.split(":");
+
+                      Calendar calendar = Calendar.getInstance();
+                      calendar.set(Calendar.HOUR_OF_DAY,
+                              Integer.parseInt(parts[0]));
+                      calendar.set(Calendar.MINUTE,
+                              Integer.parseInt(parts[1]));
+                      calendar.set(Calendar.SECOND, 0);
+                      calendar.set(Calendar.MILLISECOND, 0);
+
+                      if (calendar.getTimeInMillis() <= System.currentTimeMillis()) {
+                          calendar.add(Calendar.DAY_OF_YEAR, 1);
+                      }
+
+                      Intent intent = new Intent(this, AlertReceiver.class);
+                      intent.putExtra("title", "⏰ SENSEX ALERT");
+                      intent.putExtra("body", "Scheduled alarm: " + time);
+
+                      PendingIntent pending = PendingIntent.getBroadcast(
+                              this,
+                              alarmId(time),
+                              intent,
+                              PendingIntent.FLAG_UPDATE_CURRENT |
+                              PendingIntent.FLAG_IMMUTABLE);
+
+                      AlarmManager alarmManager =
+                              (AlarmManager) getSystemService(ALARM_SERVICE);
+
+                      if (Build.VERSION.SDK_INT >= 23) {
+                          alarmManager.setExactAndAllowWhileIdle(
+                                  AlarmManager.RTC_WAKEUP,
+                                  calendar.getTimeInMillis(),
+                                  pending);
+                      } else {
+                          alarmManager.setExact(
+                                  AlarmManager.RTC_WAKEUP,
+                                  calendar.getTimeInMillis(),
+                                  pending);
+                      }
+
+                  } catch (SecurityException e) {
+                      statusView.setText(
+                              "Enable exact alarms for SensexAlert in Android settings");
+                  } catch (Exception e) {
+                      statusView.setText("Alarm error: " + e.getMessage());
+                  }
+              }
+
+              void cancelAlarm(String time) {
+                  Intent intent = new Intent(this, AlertReceiver.class);
+
+                  PendingIntent pending = PendingIntent.getBroadcast(
+                          this,
+                          alarmId(time),
+                          intent,
+                          PendingIntent.FLAG_UPDATE_CURRENT |
+                          PendingIntent.FLAG_IMMUTABLE);
+
+                  AlarmManager alarmManager =
+                          (AlarmManager) getSystemService(ALARM_SERVICE);
+
+                  alarmManager.cancel(pending);
+                  pending.cancel();
+              }
+
+              JSONObject findInstrument(JSONObject root, String requested)
+                      throws Exception {
+
+                  JSONObject data = root.getJSONObject("data");
+
+                  if (data.has(requested)) {
+                      return data.getJSONObject(requested);
+                  }
+
+                  String colon = requested.replace('|', ':');
+
+                  if (data.has(colon)) {
+                      return data.getJSONObject(colon);
+                  }
+
+                  Iterator<String> keys = data.keys();
+
+                  while (keys.hasNext()) {
+                      String key = keys.next();
+
+                      if (key.replace(':', '|').equals(requested)) {
+                          return data.getJSONObject(key);
+                      }
+                  }
+
+                  throw new Exception(
+                          "No value for " + requested +
+                          " • returned keys: " + data.keys().toString());
+              }
+
+              double numberFromData(JSONObject data, String field) {
+                  return data.has(field)
+                          ? data.optDouble(field, Double.NaN)
+                          : Double.NaN;
+              }
+
+              void refresh() {
+                  String accessToken =
+                          tokenEdit.getText().toString().trim();
+
+                  if (accessToken.isEmpty()) {
+                      statusView.setText("Enter Upstox Analytics Token");
+                      return;
+                  }
+
+                  executor.execute(() -> {
+                      try {
+                          String date = LocalDate.now().toString();
+                          String encoded =
+                                  URLEncoder.encode(SENSEX, "UTF-8");
+
+                          // 1. SENSEX LTP
+                          JSONObject ltp = new JSONObject(get(
+                                  "https://api.upstox.com/v3/market-quote/ltp"
+                                          + "?instrument_key=" + encoded,
+                                  accessToken));
+
+                          JSONObject instrument =
+                                  findInstrument(ltp, SENSEX);
+
+                          double price =
+                                  instrument.getDouble("last_price");
+
+                          // 2. PCR
+                          JSONObject pcrJson = new JSONObject(get(
+                                  "https://api.upstox.com/v2/market/pcr"
+                                          + "?instrument_key=" + encoded
+                                          + "&expiry=current_week"
+                                          + "&date=" + date
+                                          + "&bucket_interval=60",
+                                  accessToken));
+
+                          JSONObject pcrData =
+                                  pcrJson.getJSONObject("data");
+
+                          double pcr =
+                                  numberFromData(pcrData, "pcr");
+
+                          // 3. MAX PAIN
+                          JSONObject maxJson = new JSONObject(get(
+                                  "https://api.upstox.com/v2/market/max-pain"
+                                          + "?instrument_key=" + encoded
+                                          + "&expiry=current_week"
+                                          + "&date=" + date
+                                          + "&bucket_interval=60",
+                                  accessToken));
+
+                          JSONObject maxData =
+                                  maxJson.getJSONObject("data");
+
+                          double maxPain =
+                                  numberFromData(maxData, "max_pain");
+
+                          // 4. TOTAL PUT/CALL OI
+                          JSONObject oiJson = new JSONObject(get(
+                                  "https://api.upstox.com/v2/market/oi"
+                                          + "?instrument_key=" + encoded
+                                          + "&expiry=current_week"
+                                          + "&date=" + date,
+                                  accessToken));
+
+                          JSONObject oiData =
+                                  oiJson.getJSONObject("data");
+
+                          double putOI =
+                                  numberFromData(oiData, "total_puts");
+
+                          double callOI =
+                                  numberFromData(oiData, "total_calls");
+
+                          // Dynamic approximation of the chart's
+                          // right-axis position.
+                          double low =
+                                  sp.getFloat("session_low", Float.NaN);
+                          double high =
+                                  sp.getFloat("session_high", Float.NaN);
+
+                          // Start a fresh range around the first live price.
+                          if (Double.isNaN(low) ||
+                                  Double.isNaN(high) ||
+                                  low <= 0 ||
+                                  high <= low) {
+                              low = price - 100;
+                              high = price + 100;
+                          }
+
+                          if (price < low) low = price;
+                          if (price > high) high = price;
+
+                          if (high - low < 100) {
+                              low = price - 50;
+                              high = price + 50;
+                          }
+
+                          double leftAxisMax =
+                                  !Double.isNaN(pcr) && pcr > 1.0
+                                          ? 1.4
+                                          : 1.2;
+
+                          double tealPosition =
+                                  ((price - low) / (high - low))
+                                          * leftAxisMax;
+
+                          sp.edit()
+                                  .putFloat("session_low", (float) low)
+                                  .putFloat("session_high", (float) high)
+                                  .putString("sensex",
+                                          String.format(Locale.US,
+                                                  "%,.2f", price))
+                                  .putString("pcr",
+                                          Double.isNaN(pcr)
+                                                  ? "--"
+                                                  : String.format(Locale.US,
+                                                  "%.4f", pcr))
+                                  .putString("position",
+                                          String.format(Locale.US,
+                                                  "%.2f", tealPosition))
+                                  .putString("status",
+                                          "LIVE • 10 sec")
+                                  .apply();
+
+                          checkRule("PCR ABOVE", pcr);
+                          checkRule("PCR BELOW", pcr);
+                          checkRule("SENSEX ABOVE", price);
+                          checkRule("SENSEX BELOW", price);
+                          checkRule("TEAL ABOVE", tealPosition);
+                          checkRule("TEAL BELOW", tealPosition);
+
+                          double finalLow = low;
+                          double finalHigh = high;
+                          double finalPosition = tealPosition;
+                          double finalAxis = leftAxisMax;
+
+                          runOnUiThread(() -> {
+                              sensexView.setText(String.format(
+                                      Locale.US,
+                                      "SENSEX %,.2f",
+                                      price));
+
+                              pcrView.setText(
+                                      Double.isNaN(pcr)
+                                              ? "PCR --"
+                                              : String.format(
+                                              Locale.US,
+                                              "PCR %.4f", pcr));
+
+                              maxPainView.setText(
+                                      Double.isNaN(maxPain)
+                                              ? "MAX PAIN --"
+                                              : String.format(
+                                              Locale.US,
+                                              "MAX PAIN %,.0f",
+                                              maxPain));
+
+                              oiView.setText(String.format(
+                                      Locale.US,
+                                      "OI PUT %,.0f • CALL %,.0f",
+                                      putOI, callOI));
+
+                              tealView.setText(String.format(
+                                      Locale.US,
+                                      "Teal position %.2f • axis %.1f • range %,.0f–%,.0f",
+                                      finalPosition,
+                                      finalAxis,
+                                      finalLow,
+                                      finalHigh));
+
+                              statusView.setText(
+                                      "LIVE • updated " +
+                                              LocalTime.now()
+                                                      .withNano(0));
+                          });
+
+                      } catch (Exception e) {
+                          runOnUiThread(() ->
+                                  statusView.setText(
+                                          "API error: " + e.getMessage()));
+                      }
+                  });
+              }
+
+              void checkRule(String type, double value) {
+                  if (Double.isNaN(value)) return;
+
+                  if (!sp.getBoolean("enabled_" + type, false)) {
+                      return;
+                  }
+
+                  try {
+                      double threshold = Double.parseDouble(
+                              sp.getString("rule_" + type, ""));
+
+                      boolean above = type.contains("ABOVE");
+
+                      boolean crossed =
+                              above
+                                      ? value >= threshold
+                                      : value <= threshold;
+
+                      String stateKey = "last_" + type;
+                      boolean wasAlreadyCrossed =
+                              sp.getBoolean(stateKey, false);
+
+                      if (crossed && !wasAlreadyCrossed) {
+                          notifyAlert(
+                                  type,
+                                  String.format(
+                                          Locale.US,
+                                          "%s %.2f crossed %.2f",
+                                          type,
+                                          value,
+                                          threshold));
+                      }
+
+                      sp.edit()
+                              .putBoolean(stateKey, crossed)
+                              .apply();
+
+                  } catch (Exception ignored) {
+                  }
+              }
+
+              void notifyAlert(String type, String message) {
+                  Intent intent =
+                          new Intent(this, AlertReceiver.class);
+
+                  intent.putExtra("title", "🚨 " + type);
+                  intent.putExtra("body", message);
+
+                  sendBroadcast(intent);
+              }
+
+              String get(String urlString, String accessToken)
+                      throws Exception {
+
+                  HttpURLConnection connection =
+                          (HttpURLConnection)
+                                  new URL(urlString).openConnection();
+
+                  connection.setRequestMethod("GET");
+                  connection.setRequestProperty(
+                          "Authorization",
+                          "Bearer " + accessToken);
+                  connection.setRequestProperty(
+                          "Accept",
+                          "application/json");
+                  connection.setConnectTimeout(12000);
+                  connection.setReadTimeout(12000);
+
+                  int code = connection.getResponseCode();
+
+                  InputStream input =
+                          code >= 200 && code < 300
+                                  ? connection.getInputStream()
+                                  : connection.getErrorStream();
+
+                  BufferedReader reader =
+                          new BufferedReader(
+                                  new InputStreamReader(input));
+
+                  StringBuilder response = new StringBuilder();
+                  String line;
+
+                  while ((line = reader.readLine()) != null) {
+                      response.append(line);
+                  }
+
+                  reader.close();
+
+                  if (code < 200 || code >= 300) {
+                      throw new Exception(
+                              "HTTP " + code + " " + response);
+                  }
+
+                  return response.toString();
+              }
+
+              void createNotificationChannel() {
+                  if (Build.VERSION.SDK_INT >= 26) {
+                      NotificationManager nm =
+                              (NotificationManager)
+                                      getSystemService(
+                                              NOTIFICATION_SERVICE);
+
+                      nm.createNotificationChannel(
+                              new NotificationChannel(
+                                      "sensex_alert",
+                                      "Sensex Alerts",
+                                      NotificationManager.IMPORTANCE_HIGH));
+                  }
+              }
+
+              void openWallpaper() {
+                  try {
+                      Intent intent = new Intent(
+                              WallpaperManager
+                                      .ACTION_CHANGE_LIVE_WALLPAPER);
+
+                      intent.putExtra(
+                              WallpaperManager
+                                      .EXTRA_LIVE_WALLPAPER_COMPONENT,
+                              new ComponentName(
+                                      this,
+                                      SensexWallpaperService.class));
+
+                      startActivity(intent);
+
+                  } catch (Exception e) {
+                      startActivity(new Intent(
+                              WallpaperManager
+                                      .ACTION_LIVE_WALLPAPER_CHOOSER));
+                  }
+              }
+
+              @Override
+              protected void onDestroy() {
+                  handler.removeCallbacksAndMessages(null);
+                  executor.shutdownNow();
+                  super.onDestroy();
+              }
           }
           EOF
 
@@ -653,5 +1092,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SensexAlert-v3-debug-apk
+          name: SensexAlert-v3.1-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
