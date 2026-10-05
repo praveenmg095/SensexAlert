@@ -14,14 +14,29 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+
+      # =========================================================
+      # Checkout
+      # =========================================================
+
       - name: Checkout
         uses: actions/checkout@v4
+
+
+      # =========================================================
+      # Java
+      # =========================================================
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
+
+      # =========================================================
+      # Android SDK
+      # =========================================================
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
@@ -33,6 +48,11 @@ jobs:
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+
+      # =========================================================
+      # Gradle
+      # =========================================================
+
       - name: Install Gradle
         run: |
           curl -L \
@@ -43,9 +63,10 @@ jobs:
 
           echo "/tmp/gradle-8.7/bin" >> "$GITHUB_PATH"
 
-      # ---------------------------------------------------------
+
+      # =========================================================
       # Create Android project
-      # ---------------------------------------------------------
+      # =========================================================
 
       - name: Create project
         shell: bash
@@ -54,6 +75,11 @@ jobs:
           mkdir -p app/src/main/java/com/praveen/sensexalert
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/xml
+
+
+          # =====================================================
+          # settings.gradle
+          # =====================================================
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -74,8 +100,14 @@ jobs:
           }
 
           rootProject.name = 'SensexAlert'
+
           include ':app'
           EOF
+
+
+          # =====================================================
+          # Root build.gradle
+          # =====================================================
 
           cat > build.gradle <<'EOF'
           plugins {
@@ -83,10 +115,20 @@ jobs:
           }
           EOF
 
+
+          # =====================================================
+          # gradle.properties
+          # =====================================================
+
           cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
           EOF
+
+
+          # =====================================================
+          # app/build.gradle
+          # =====================================================
 
           cat > app/build.gradle <<'EOF'
           plugins {
@@ -94,25 +136,47 @@ jobs:
           }
 
           android {
+
               namespace 'com.praveen.sensexalert'
+
               compileSdk 35
 
               defaultConfig {
+
                   applicationId 'com.praveen.sensexalert'
+
                   minSdk 26
+
                   targetSdk 35
+
                   versionCode 1
+
                   versionName '1.0'
               }
           }
           EOF
 
+
+          # =====================================================
+          # strings.xml
+          # =====================================================
+
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
+
               <string name="app_name">SensexAlert</string>
-              <string name="wallpaper_description">SENSEX Live Market Dashboard</string>
+
+              <string name="wallpaper_description">
+                  SENSEX Live Market Dashboard
+              </string>
+
           </resources>
           EOF
+
+
+          # =====================================================
+          # styles.xml
+          # =====================================================
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
@@ -121,32 +185,58 @@ jobs:
                      parent="android:style/Theme.Material.NoActionBar">
 
                   <item name="android:fontFamily">sans</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#000000</item>
-                  <item name="android:navigationBarColor">#000000</item>
+
+                  <item name="android:windowLightStatusBar">
+                      false
+                  </item>
+
+                  <item name="android:statusBarColor">
+                      #000000
+                  </item>
+
+                  <item name="android:navigationBarColor">
+                      #000000
+                  </item>
 
               </style>
 
           </resources>
           EOF
 
+
+          # =====================================================
+          # wallpaper.xml
+          # =====================================================
+
           cat > app/src/main/res/xml/wallpaper.xml <<'EOF'
-          <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+          <wallpaper
+              xmlns:android="http://schemas.android.com/apk/res/android"
               android:description="@string/wallpaper_description" />
           EOF
 
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-              <uses-permission android:name="android.permission.INTERNET" />
+          # =====================================================
+          # AndroidManifest.xml
+          # =====================================================
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest
+              xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission
+                  android:name="android.permission.INTERNET" />
 
               <uses-permission
                   android:name="android.permission.POST_NOTIFICATIONS" />
+
 
               <application
                   android:allowBackup="true"
                   android:label="@string/app_name"
                   android:theme="@style/AppTheme">
+
+
+                  <!-- Main Activity -->
 
                   <activity
                       android:name=".MainActivity"
@@ -163,6 +253,9 @@ jobs:
                       </intent-filter>
 
                   </activity>
+
+
+                  <!-- Live Wallpaper Service -->
 
                   <service
                       android:name=".SensexWallpaperService"
@@ -187,25 +280,24 @@ jobs:
           </manifest>
           EOF
 
+
+          # =====================================================
+          # MainActivity.java
+          # =====================================================
+
           cat > app/src/main/java/com/praveen/sensexalert/MainActivity.java <<'EOF'
           package com.praveen.sensexalert;
 
           import android.app.Activity;
-          import android.app.AlertDialog;
           import android.app.NotificationChannel;
           import android.app.NotificationManager;
-          import android.app.PendingIntent;
-          import android.content.Context;
+          import android.app.WallpaperManager;
           import android.content.Intent;
           import android.content.SharedPreferences;
           import android.graphics.Color;
-          import android.net.Uri;
           import android.os.Bundle;
           import android.os.Handler;
           import android.os.Looper;
-          import android.provider.Settings;
-          import android.view.Gravity;
-          import android.view.View;
           import android.widget.Button;
           import android.widget.EditText;
           import android.widget.LinearLayout;
@@ -224,35 +316,54 @@ jobs:
           import java.util.concurrent.ExecutorService;
           import java.util.concurrent.Executors;
 
+
           public class MainActivity extends Activity {
 
-              private static final String PREFS = "sensex_alert";
-              private static final String TOKEN = "analytics_token";
+
+              private static final String PREFS =
+                      "sensex_alert";
+
+
+              private static final String TOKEN =
+                      "analytics_token";
+
 
               /*
                * Upstox instrument key for SENSEX.
-               *
-               * If Upstox returns "invalid instrument key", we will
-               * make this configurable in the next version.
                */
               private static final String SENSEX =
                       "BSE_INDEX|SENSEX";
 
+
               private final ExecutorService executor =
                       Executors.newSingleThreadExecutor();
 
+
               private final Handler handler =
-                      new Handler(Looper.getMainLooper());
+                      new Handler(
+                              Looper.getMainLooper()
+                      );
+
 
               private TextView sensexText;
+
               private TextView pcrText;
+
               private TextView maxPainText;
+
               private TextView putOiText;
+
               private TextView callOiText;
+
               private TextView statusText;
+
 
               private EditText tokenInput;
 
+
+              /*
+               * Refresh market data every 60 seconds.
+               */
               private final Runnable refreshRunnable =
                       new Runnable() {
 
@@ -268,34 +379,61 @@ jobs:
                           }
                       };
 
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
 
-                  super.onCreate(savedInstanceState);
+              @Override
+              protected void onCreate(
+                      Bundle savedInstanceState
+              ) {
+
+                  super.onCreate(
+                          savedInstanceState
+                  );
+
 
                   createNotificationChannel();
 
+
                   buildUi();
+
 
                   String saved =
                           getSharedPreferences(
                                   PREFS,
                                   MODE_PRIVATE
-                          ).getString(TOKEN, "");
+                          )
+                          .getString(
+                                  TOKEN,
+                                  ""
+                          );
 
-                  tokenInput.setText(saved);
+
+                  tokenInput.setText(
+                          saved
+                  );
               }
 
+
+              /*
+               * Build application UI.
+               */
               private void buildUi() {
 
-                  ScrollView scroll = new ScrollView(this);
+                  ScrollView scroll =
+                          new ScrollView(
+                                  this
+                          );
+
 
                   LinearLayout root =
-                          new LinearLayout(this);
+                          new LinearLayout(
+                                  this
+                          );
+
 
                   root.setOrientation(
                           LinearLayout.VERTICAL
                   );
+
 
                   root.setPadding(
                           32,
@@ -304,9 +442,11 @@ jobs:
                           32
                   );
 
+
                   root.setBackgroundColor(
                           Color.BLACK
                   );
+
 
                   TextView title =
                           text(
@@ -315,35 +455,64 @@ jobs:
                                   Color.WHITE
                           );
 
-                  root.addView(title);
 
+                  root.addView(
+                          title
+                  );
+
+
+                  /*
+                   * Upstox Analytics Token
+                   */
                   tokenInput =
-                          new EditText(this);
+                          new EditText(
+                                  this
+                          );
+
 
                   tokenInput.setHint(
                           "Paste Upstox Analytics Token"
                   );
 
+
                   tokenInput.setTextColor(
                           Color.WHITE
                   );
+
 
                   tokenInput.setHintTextColor(
                           Color.GRAY
                   );
 
-                  tokenInput.setSingleLine(true);
 
-                  root.addView(tokenInput);
+                  tokenInput.setSingleLine(
+                          true
+                  );
 
+
+                  root.addView(
+                          tokenInput
+                  );
+
+
+                  /*
+                   * Save token button
+                   */
                   Button save =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
+
 
                   save.setText(
                           "SAVE TOKEN"
                   );
 
-                  root.addView(save);
+
+                  root.addView(
+                          save
+                  );
+
 
                   save.setOnClickListener(
                           v -> {
@@ -355,16 +524,22 @@ jobs:
                               .edit()
                               .putString(
                                       TOKEN,
-                                      tokenInput.getText()
+                                      tokenInput
+                                              .getText()
                                               .toString()
                                               .trim()
                               )
                               .apply();
 
+
                               loadMarketData();
                           }
                   );
 
+
+                  /*
+                   * SENSEX
+                   */
                   sensexText =
                           text(
                                   "SENSEX --",
@@ -372,6 +547,10 @@ jobs:
                                   Color.WHITE
                           );
 
+
+                  /*
+                   * PCR
+                   */
                   pcrText =
                           text(
                                   "PCR --",
@@ -379,6 +558,10 @@ jobs:
                                   Color.WHITE
                           );
 
+
+                  /*
+                   * Max Pain
+                   */
                   maxPainText =
                           text(
                                   "MAX PAIN --",
@@ -386,6 +569,10 @@ jobs:
                                   Color.WHITE
                           );
 
+
+                  /*
+                   * Put OI
+                   */
                   putOiText =
                           text(
                                   "PUT OI --",
@@ -393,6 +580,10 @@ jobs:
                                   Color.WHITE
                           );
 
+
+                  /*
+                   * Call OI
+                   */
                   callOiText =
                           text(
                                   "CALL OI --",
@@ -400,6 +591,10 @@ jobs:
                                   Color.WHITE
                           );
 
+
+                  /*
+                   * Status
+                   */
                   statusText =
                           text(
                                   "Not connected",
@@ -407,31 +602,70 @@ jobs:
                                   Color.GRAY
                           );
 
-                  root.addView(sensexText);
-                  root.addView(pcrText);
-                  root.addView(maxPainText);
-                  root.addView(putOiText);
-                  root.addView(callOiText);
-                  root.addView(statusText);
 
+                  root.addView(
+                          sensexText
+                  );
+
+                  root.addView(
+                          pcrText
+                  );
+
+                  root.addView(
+                          maxPainText
+                  );
+
+                  root.addView(
+                          putOiText
+                  );
+
+                  root.addView(
+                          callOiText
+                  );
+
+                  root.addView(
+                          statusText
+                  );
+
+
+                  /*
+                   * Live wallpaper button
+                   */
                   Button wallpaper =
-                          new Button(this);
+                          new Button(
+                                  this
+                          );
+
 
                   wallpaper.setText(
                           "SET LIVE WALLPAPER"
                   );
 
-                  root.addView(wallpaper);
+
+                  root.addView(
+                          wallpaper
+                  );
+
 
                   wallpaper.setOnClickListener(
                           v -> openWallpaper()
                   );
 
-                  scroll.addView(root);
 
-                  setContentView(scroll);
+                  scroll.addView(
+                          root
+                  );
+
+
+                  setContentView(
+                          scroll
+                  );
               }
 
+
+              /*
+               * Helper method for TextViews.
+               */
               private TextView text(
                       String value,
                       int size,
@@ -439,11 +673,25 @@ jobs:
               ) {
 
                   TextView t =
-                          new TextView(this);
+                          new TextView(
+                                  this
+                          );
 
-                  t.setText(value);
-                  t.setTextSize(size);
-                  t.setTextColor(color);
+
+                  t.setText(
+                          value
+                  );
+
+
+                  t.setTextSize(
+                          size
+                  );
+
+
+                  t.setTextColor(
+                          color
+                  );
+
 
                   t.setPadding(
                           0,
@@ -452,15 +700,22 @@ jobs:
                           18
                   );
 
+
                   return t;
               }
 
+
+              /*
+               * Load market data from Upstox.
+               */
               private void loadMarketData() {
 
                   String token =
-                          tokenInput.getText()
+                          tokenInput
+                                  .getText()
                                   .toString()
                                   .trim();
+
 
                   if (token.isEmpty()) {
 
@@ -471,9 +726,11 @@ jobs:
                       return;
                   }
 
+
                   statusText.setText(
                           "Updating..."
                   );
+
 
                   executor.execute(
                           () -> {
@@ -481,27 +738,39 @@ jobs:
                               try {
 
                                   String date =
-                                          LocalDate.now()
+                                          LocalDate
+                                                  .now()
                                                   .toString();
 
+
                                   String instrument =
-                                          URLEncoder.encode(
-                                                  SENSEX,
-                                                  "UTF-8"
-                                          );
+                                          URLEncoder
+                                                  .encode(
+                                                          SENSEX,
+                                                          "UTF-8"
+                                                  );
+
 
                                   String base =
                                           "https://api.upstox.com";
 
+
+                                  /*
+                                   * SENSEX LTP
+                                   */
                                   String ltpUrl =
-                                          base +
-                                          "/v3/market-quote/ltp"
+                                          base
+                                          + "/v3/market-quote/ltp"
                                           + "?instrument_key="
                                           + instrument;
 
+
+                                  /*
+                                   * PCR
+                                   */
                                   String pcrUrl =
-                                          base +
-                                          "/v2/market/pcr"
+                                          base
+                                          + "/v2/market/pcr"
                                           + "?instrument_key="
                                           + instrument
                                           + "&expiry=current_week"
@@ -509,9 +778,13 @@ jobs:
                                           + date
                                           + "&bucket_interval=60";
 
+
+                                  /*
+                                   * Max Pain
+                                   */
                                   String maxPainUrl =
-                                          base +
-                                          "/v2/market/max-pain"
+                                          base
+                                          + "/v2/market/max-pain"
                                           + "?instrument_key="
                                           + instrument
                                           + "&expiry=current_week"
@@ -519,14 +792,19 @@ jobs:
                                           + date
                                           + "&bucket_interval=60";
 
+
+                                  /*
+                                   * Open Interest
+                                   */
                                   String oiUrl =
-                                          base +
-                                          "/v2/market/oi"
+                                          base
+                                          + "/v2/market/oi"
                                           + "?instrument_key="
                                           + instrument
                                           + "&expiry=current_week"
                                           + "&date="
                                           + date;
+
 
                                   String ltp =
                                           get(
@@ -534,11 +812,13 @@ jobs:
                                                   token
                                           );
 
+
                                   String pcr =
                                           get(
                                                   pcrUrl,
                                                   token
                                           );
+
 
                                   String maxPain =
                                           get(
@@ -546,29 +826,47 @@ jobs:
                                                   token
                                           );
 
+
                                   String oi =
                                           get(
                                                   oiUrl,
                                                   token
                                           );
 
+
                                   JSONObject ltpJson =
-                                          new JSONObject(ltp);
+                                          new JSONObject(
+                                                  ltp
+                                          );
+
 
                                   JSONObject pcrJson =
-                                          new JSONObject(pcr);
+                                          new JSONObject(
+                                                  pcr
+                                          );
+
 
                                   JSONObject mpJson =
-                                          new JSONObject(maxPain);
+                                          new JSONObject(
+                                                  maxPain
+                                          );
+
 
                                   JSONObject oiJson =
-                                          new JSONObject(oi);
+                                          new JSONObject(
+                                                  oi
+                                          );
 
+
+                                  /*
+                                   * LTP
+                                   */
                                   JSONObject ltpData =
                                           ltpJson
                                                   .getJSONObject(
                                                           "data"
                                                   );
+
 
                                   JSONObject ltpInstrument =
                                           ltpData
@@ -576,12 +874,17 @@ jobs:
                                                           SENSEX
                                                   );
 
+
                                   double sensex =
                                           ltpInstrument
                                                   .getDouble(
                                                           "last_price"
                                                   );
 
+
+                                  /*
+                                   * PCR
+                                   */
                                   double pcrValue =
                                           pcrJson
                                                   .getJSONObject(
@@ -591,6 +894,10 @@ jobs:
                                                           "pcr"
                                                   );
 
+
+                                  /*
+                                   * Max Pain
+                                   */
                                   double maxPainValue =
                                           mpJson
                                                   .getJSONObject(
@@ -600,11 +907,16 @@ jobs:
                                                           "max_pain"
                                                   );
 
+
+                                  /*
+                                   * OI
+                                   */
                                   JSONObject oiData =
                                           oiJson
                                                   .getJSONObject(
                                                           "data"
                                                   );
+
 
                                   long puts =
                                           oiData
@@ -612,116 +924,156 @@ jobs:
                                                           "total_puts"
                                                   );
 
+
                                   long calls =
                                           oiData
                                                   .getLong(
                                                           "total_calls"
                                                   );
 
+
+                                  /*
+                                   * Update UI.
+                                   */
                                   runOnUiThread(
                                           () -> {
 
-                                              sensexText.setText(
-                                                      String.format(
-                                                              Locale.US,
-                                                              "SENSEX  %,.2f",
-                                                              sensex
-                                                      )
-                                              );
+                                              sensexText
+                                                      .setText(
+                                                              String.format(
+                                                                      Locale.US,
+                                                                      "SENSEX  %,.2f",
+                                                                      sensex
+                                                              )
+                                                      );
 
-                                              pcrText.setText(
-                                                      String.format(
-                                                              Locale.US,
-                                                              "PCR  %.4f",
-                                                              pcrValue
-                                                      )
-                                              );
 
-                                              maxPainText.setText(
-                                                      String.format(
-                                                              Locale.US,
-                                                              "MAX PAIN  %,.0f",
-                                                              maxPainValue
-                                                      )
-                                              );
+                                              pcrText
+                                                      .setText(
+                                                              String.format(
+                                                                      Locale.US,
+                                                                      "PCR  %.4f",
+                                                                      pcrValue
+                                                              )
+                                                      );
 
-                                              putOiText.setText(
-                                                      String.format(
-                                                              Locale.US,
-                                                              "PUT OI  %,.0f",
-                                                              (double) puts
-                                                      )
-                                              );
 
-                                              callOiText.setText(
-                                                      String.format(
-                                                              Locale.US,
-                                                              "CALL OI  %,.0f",
-                                                              (double) calls
-                                                      )
-                                              );
+                                              maxPainText
+                                                      .setText(
+                                                              String.format(
+                                                                      Locale.US,
+                                                                      "MAX PAIN  %,.0f",
+                                                                      maxPainValue
+                                                              )
+                                                      );
 
-                                              statusText.setText(
-                                                      "LIVE • "
+
+                                              putOiText
+                                                      .setText(
+                                                              String.format(
+                                                                      Locale.US,
+                                                                      "PUT OI  %,.0f",
+                                                                      (double) puts
+                                                              )
+                                                      );
+
+
+                                              callOiText
+                                                      .setText(
+                                                              String.format(
+                                                                      Locale.US,
+                                                                      "CALL OI  %,.0f",
+                                                                      (double) calls
+                                                              )
+                                                      );
+
+
+                                              statusText
+                                                      .setText(
+                                                              "LIVE • "
                                                               + date
-                                              );
+                                                      );
                                           }
                                   );
 
-                              } catch (Exception e) {
+
+                              } catch (
+                                      Exception e
+                              ) {
 
                                   runOnUiThread(
                                           () ->
-                                                  statusText.setText(
-                                                          "API error: "
+                                                  statusText
+                                                          .setText(
+                                                                  "API error: "
                                                                   + e.getMessage()
-                                                  )
+                                                          )
                                   );
                               }
                           }
                   );
               }
 
+
+              /*
+               * Perform HTTP GET request.
+               */
               private String get(
                       String urlString,
                       String token
               ) throws Exception {
 
+
                   URL url =
-                          new URL(urlString);
+                          new URL(
+                                  urlString
+                          );
+
 
                   HttpURLConnection connection =
                           (HttpURLConnection)
                                   url.openConnection();
 
+
                   connection.setRequestMethod(
                           "GET"
                   );
+
 
                   connection.setConnectTimeout(
                           15000
                   );
 
+
                   connection.setReadTimeout(
                           15000
                   );
+
 
                   connection.setRequestProperty(
                           "Accept",
                           "application/json"
                   );
 
+
                   connection.setRequestProperty(
                           "Authorization",
                           "Bearer " + token
                   );
 
+
                   int code =
-                          connection.getResponseCode();
+                          connection
+                                  .getResponseCode();
+
 
                   BufferedReader reader;
 
-                  if (code >= 200 && code < 300) {
+
+                  if (
+                          code >= 200
+                                  && code < 300
+                  ) {
 
                       reader =
                               new BufferedReader(
@@ -742,65 +1094,101 @@ jobs:
                               );
                   }
 
+
                   StringBuilder response =
                           new StringBuilder();
 
+
                   String line;
 
+
                   while (
-                          (line = reader.readLine())
+                          (line =
+                                  reader.readLine())
                                   != null
                   ) {
 
-                      response.append(line);
+                      response.append(
+                              line
+                      );
                   }
+
 
                   reader.close();
 
-                  if (code < 200 || code >= 300) {
+
+                  if (
+                          code < 200
+                                  || code >= 300
+                  ) {
 
                       throw new Exception(
                               "HTTP "
-                                      + code
-                                      + ": "
-                                      + response
+                              + code
+                              + ": "
+                              + response
                       );
                   }
+
 
                   return response.toString();
               }
 
+
+              /*
+               * Open Android Live Wallpaper preview.
+               *
+               * IMPORTANT:
+               * We use WallpaperManager here.
+               */
               private void openWallpaper() {
 
                   try {
 
                       Intent intent =
                               new Intent(
-                                      Settings
+                                      WallpaperManager
                                               .ACTION_CHANGE_LIVE_WALLPAPER
                               );
 
+
                       intent.putExtra(
-                              "android.service.wallpaper.extra.LIVE_WALLPAPER_COMPONENT",
+                              WallpaperManager
+                                      .EXTRA_LIVE_WALLPAPER_COMPONENT,
+
                               new android.content.ComponentName(
                                       this,
                                       SensexWallpaperService.class
                               )
                       );
 
-                      startActivity(intent);
-
-                  } catch (Exception e) {
 
                       startActivity(
+                              intent
+                      );
+
+
+                  } catch (
+                          Exception e
+                  ) {
+
+                      /*
+                       * Fallback:
+                       * Open Android live wallpaper chooser.
+                       */
+                      startActivity(
                               new Intent(
-                                      Settings
+                                      WallpaperManager
                                               .ACTION_LIVE_WALLPAPER_CHOOSER
                               )
                       );
                   }
               }
 
+
+              /*
+               * Notification channel.
+               */
               private void createNotificationChannel() {
 
                   NotificationManager manager =
@@ -808,9 +1196,14 @@ jobs:
                                   NotificationManager.class
                           );
 
-                  if (manager == null) {
+
+                  if (
+                          manager == null
+                  ) {
+
                       return;
                   }
+
 
                   NotificationChannel channel =
                           new NotificationChannel(
@@ -820,10 +1213,12 @@ jobs:
                                           .IMPORTANCE_HIGH
                           );
 
+
                   manager.createNotificationChannel(
                           channel
                   );
               }
+
 
               @Override
               protected void onDestroy() {
@@ -832,12 +1227,19 @@ jobs:
                           refreshRunnable
                   );
 
+
                   executor.shutdownNow();
+
 
                   super.onDestroy();
               }
           }
           EOF
+
+
+          # =====================================================
+          # SensexWallpaperService.java
+          # =====================================================
 
           cat > app/src/main/java/com/praveen/sensexalert/SensexWallpaperService.java <<'EOF'
           package com.praveen.sensexalert;
@@ -845,11 +1247,15 @@ jobs:
           import android.graphics.Canvas;
           import android.graphics.Color;
           import android.graphics.Paint;
+          import android.os.Handler;
+          import android.os.Looper;
           import android.service.wallpaper.WallpaperService;
           import android.view.SurfaceHolder;
 
+
           public class SensexWallpaperService
                   extends WallpaperService {
+
 
               @Override
               public Engine onCreateEngine() {
@@ -857,12 +1263,32 @@ jobs:
                   return new SensexEngine();
               }
 
+
               private class SensexEngine
                       extends Engine {
 
-                  private final Paint paint =
-                          new Paint(Paint.ANTI_ALIAS_FLAG);
 
+                  private final Paint paint =
+                          new Paint(
+                                  Paint.ANTI_ALIAS_FLAG
+                          );
+
+
+                  /*
+                   * WallpaperService.Engine does not
+                   * provide getHandler().
+                   *
+                   * Therefore we maintain our own Handler.
+                   */
+                  private final Handler handler =
+                          new Handler(
+                                  Looper.getMainLooper()
+                          );
+
+
+                  /*
+                   * Redraw wallpaper every 10 seconds.
+                   */
                   private final Runnable drawRunnable =
                           new Runnable() {
 
@@ -871,25 +1297,29 @@ jobs:
 
                                   draw();
 
+
                                   if (visible) {
 
-                                      getHandler()
-                                              .postDelayed(
-                                                      this,
-                                                      10000
-                                              );
+                                      handler.postDelayed(
+                                              this,
+                                              10000
+                                      );
                                   }
                               }
                           };
 
+
                   private boolean visible;
+
 
                   @Override
                   public void onVisibilityChanged(
                           boolean visible
                   ) {
 
-                      this.visible = visible;
+                      this.visible =
+                              visible;
+
 
                       if (visible) {
 
@@ -897,12 +1327,12 @@ jobs:
 
                       } else {
 
-                          getHandler()
-                                  .removeCallbacks(
-                                          drawRunnable
-                                  );
+                          handler.removeCallbacks(
+                                  drawRunnable
+                          );
                       }
                   }
+
 
                   @Override
                   public void onSurfaceChanged(
@@ -915,74 +1345,148 @@ jobs:
                       draw();
                   }
 
+
+                  @Override
+                  public void onSurfaceDestroyed(
+                          SurfaceHolder holder
+                  ) {
+
+                      handler.removeCallbacks(
+                              drawRunnable
+                      );
+
+
+                      super.onSurfaceDestroyed(
+                              holder
+                      );
+                  }
+
+
+                  @Override
+                  public void onDestroy() {
+
+                      handler.removeCallbacks(
+                              drawRunnable
+                      );
+
+
+                      super.onDestroy();
+                  }
+
+
+                  /*
+                   * Draw wallpaper.
+                   */
                   private void draw() {
 
                       SurfaceHolder holder =
                               getSurfaceHolder();
 
-                      Canvas canvas = null;
+
+                      Canvas canvas =
+                              null;
+
 
                       try {
 
                           canvas =
                                   holder.lockCanvas();
 
-                          if (canvas == null) {
+
+                          if (
+                                  canvas == null
+                          ) {
+
                               return;
                           }
 
+
+                          /*
+                           * Background
+                           */
                           canvas.drawColor(
                                   Color.BLACK
                           );
 
+
+                          /*
+                           * White text
+                           */
                           paint.setColor(
                                   Color.WHITE
                           );
+
 
                           paint.setTextAlign(
                                   Paint.Align.CENTER
                           );
 
+
+                          /*
+                           * SENSEX title
+                           */
                           paint.setTextSize(
                                   42
                           );
 
+
                           canvas.drawText(
                                   "SENSEX",
-                                  canvas.getWidth() / 2f,
+                                  canvas.getWidth()
+                                          / 2f,
                                   120,
                                   paint
                           );
 
+
+                          /*
+                           * Current placeholder
+                           *
+                           * This will be replaced with
+                           * live market values in the
+                           * next stage.
+                           */
                           paint.setTextSize(
                                   24
                           );
 
+
                           canvas.drawText(
                                   "Open SensexAlert",
-                                  canvas.getWidth() / 2f,
+                                  canvas.getWidth()
+                                          / 2f,
                                   180,
                                   paint
                           );
 
+
+                          /*
+                           * Status
+                           */
                           paint.setTextSize(
                                   18
                           );
+
 
                           paint.setColor(
                                   Color.GRAY
                           );
 
+
                           canvas.drawText(
                                   "Live dashboard",
-                                  canvas.getWidth() / 2f,
+                                  canvas.getWidth()
+                                          / 2f,
                                   220,
                                   paint
                           );
 
+
                       } finally {
 
-                          if (canvas != null) {
+                          if (
+                                  canvas != null
+                          ) {
 
                               holder.unlockCanvasAndPost(
                                       canvas
@@ -994,9 +1498,19 @@ jobs:
           }
           EOF
 
+
+      # =========================================================
+      # Build APK
+      # =========================================================
+
       - name: Build APK
         run: |
           gradle assembleDebug --no-daemon
+
+
+      # =========================================================
+      # Upload APK
+      # =========================================================
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
