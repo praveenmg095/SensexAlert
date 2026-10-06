@@ -1,4 +1,4 @@
-name: Build SensexAlert V3.1
+name: Build SensexAlert V3.1.1
 
 on:
   workflow_dispatch:
@@ -86,7 +86,7 @@ jobs:
                   minSdk 26
                   targetSdk 35
                   versionCode 4
-                  versionName '3.1'
+                  versionName '3.1.1'
               }
           }
           EOF
@@ -302,9 +302,7 @@ jobs:
           import android.widget.TextView;
           import android.widget.TimePicker;
 
-          import androidx.core.app.ActivityCompat;
-
-          import org.json.JSONArray;
+                    import org.json.JSONArray;
           import org.json.JSONObject;
 
           import java.io.BufferedReader;
@@ -352,8 +350,7 @@ jobs:
                   if (Build.VERSION.SDK_INT >= 33 &&
                           checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                                   != PackageManager.PERMISSION_GRANTED) {
-                      ActivityCompat.requestPermissions(
-                              this,
+                      requestPermissions(
                               new String[]{Manifest.permission.POST_NOTIFICATIONS},
                               100);
                   }
@@ -1087,10 +1084,10 @@ jobs:
           EOF
 
       - name: Build APK
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SensexAlert-v3.1-debug-apk
+          name: SensexAlert-v3.1.1-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
