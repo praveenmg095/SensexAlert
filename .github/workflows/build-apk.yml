@@ -1,4 +1,4 @@
-name: Build SensexAlert V3.1.1
+name: Build SensexAlert V3.2.1
 
 on:
   workflow_dispatch:
@@ -85,8 +85,8 @@ jobs:
                   applicationId 'com.praveen.sensexalert'
                   minSdk 26
                   targetSdk 35
-                  versionCode 4
-                  versionName '3.1.1'
+                  versionCode 5
+                  versionName '3.2.1'
               }
           }
           EOF
@@ -132,7 +132,7 @@ jobs:
           import android.os.Build;
 
           public class AlertReceiver extends BroadcastReceiver {
-              static final String CHANNEL = "sensex_alert";
+              static final String CHANNEL = "sensex_alert_sound_v1";
 
               @Override
               public void onReceive(Context context, Intent intent) {
@@ -140,11 +140,19 @@ jobs:
                           (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
                   if (Build.VERSION.SDK_INT >= 26) {
-                      nm.createNotificationChannel(
-                              new NotificationChannel(
-                                      CHANNEL,
-                                      "Sensex Alerts",
-                                      NotificationManager.IMPORTANCE_HIGH));
+                      NotificationChannel channel = new NotificationChannel(
+                              CHANNEL,
+                              "Sensex Alerts (Sound)",
+                              NotificationManager.IMPORTANCE_HIGH);
+                      channel.setSound(
+                              android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                              new android.media.AudioAttributes.Builder()
+                                      .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                                      .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                      .build());
+                      channel.enableVibration(true);
+                      channel.setVibrationPattern(new long[]{0, 250, 150, 250});
+                      nm.createNotificationChannel(channel);
                   }
 
                   String title = intent.getStringExtra("title");
@@ -482,10 +490,25 @@ jobs:
                           "TEAL ABOVE"
                   };
 
-                  for (String rule : rules) {
+                  String[] defaults = {
+                          "1.2",
+                          "0.7",
+                          "72200",
+                          "72900",
+                          "0.2",
+                          "1.2"
+                  };
+
+                  ArrayList<EditText> thresholdFields = new ArrayList<>();
+                  ArrayList<Switch> enabledFields = new ArrayList<>();
+
+                  for (int i = 0; i < rules.length; i++) {
+                      String rule = rules[i];
+
                       EditText threshold = new EditText(this);
                       threshold.setHint(rule + " threshold");
-                      threshold.setText(sp.getString("rule_" + rule, ""));
+                      String saved = sp.getString("rule_" + rule, "");
+                      threshold.setText(saved.isEmpty() ? defaults[i] : saved);
                       threshold.setTextColor(Color.WHITE);
                       threshold.setInputType(
                               InputType.TYPE_CLASS_NUMBER |
@@ -503,29 +526,45 @@ jobs:
                       row.addView(enabled);
                       box.addView(row);
 
-                      enabled.setOnCheckedChangeListener((v, checked) ->
-                              sp.edit()
-                                      .putBoolean("enabled_" + rule, checked)
-                                      .putString("rule_" + rule,
-                                              threshold.getText().toString())
-                                      .apply());
-
-                      threshold.setOnFocusChangeListener((v, focused) -> {
-                          if (!focused) {
-                              sp.edit()
-                                      .putString("rule_" + rule,
-                                              threshold.getText().toString())
-                                      .apply();
-                          }
-                      });
+                      thresholdFields.add(threshold);
+                      enabledFields.add(enabled);
                   }
 
-                  new AlertDialog.Builder(this)
+                  AlertDialog dialog = new AlertDialog.Builder(this)
                           .setTitle("Market Alerts")
                           .setView(box)
                           .setPositiveButton("SAVE", null)
                           .setNegativeButton("CLOSE", null)
-                          .show();
+                          .create();
+
+                  dialog.setOnShowListener(d -> {
+                      dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                          SharedPreferences.Editor editor = sp.edit();
+
+                          for (int i = 0; i < rules.length; i++) {
+                              String value = thresholdFields.get(i).getText().toString().trim();
+                              if (value.isEmpty()) {
+                                  value = defaults[i];
+                              }
+
+                              editor.putString("rule_" + rules[i], value);
+                              editor.putBoolean(
+                                      "enabled_" + rules[i],
+                                      enabledFields.get(i).isChecked());
+                          }
+
+                          // Reset crossing state after settings change so the
+                          // next real crossing can generate a notification.
+                          for (String rule : rules) {
+                              editor.remove("last_" + rule);
+                          }
+
+                          editor.apply();
+                          dialog.dismiss();
+                      });
+                  });
+
+                  dialog.show();
               }
 
               ArrayList<String> getTimes() {
@@ -1040,15 +1079,21 @@ jobs:
               void createNotificationChannel() {
                   if (Build.VERSION.SDK_INT >= 26) {
                       NotificationManager nm =
-                              (NotificationManager)
-                                      getSystemService(
-                                              NOTIFICATION_SERVICE);
+                              (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
-                      nm.createNotificationChannel(
-                              new NotificationChannel(
-                                      "sensex_alert",
-                                      "Sensex Alerts",
-                                      NotificationManager.IMPORTANCE_HIGH));
+                      NotificationChannel channel = new NotificationChannel(
+                              "sensex_alert_sound_v1",
+                              "Sensex Alerts (Sound)",
+                              NotificationManager.IMPORTANCE_HIGH);
+                      channel.setSound(
+                              android.provider.Settings.System.DEFAULT_NOTIFICATION_URI,
+                              new android.media.AudioAttributes.Builder()
+                                      .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                                      .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                      .build());
+                      channel.enableVibration(true);
+                      channel.setVibrationPattern(new long[]{0, 250, 150, 250});
+                      nm.createNotificationChannel(channel);
                   }
               }
 
@@ -1089,5 +1134,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SensexAlert-v3.1.1-debug-apk
+          name: SensexAlert-v3.2.1-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
